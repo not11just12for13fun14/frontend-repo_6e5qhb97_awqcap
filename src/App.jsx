@@ -109,13 +109,10 @@ function App() {
     e.preventDefault()
     setError('')
     try {
-      const form = new URLSearchParams()
-      form.set('username', email)
-      form.set('password', password)
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: form.toString(),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       })
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
