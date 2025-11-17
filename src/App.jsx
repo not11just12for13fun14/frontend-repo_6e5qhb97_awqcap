@@ -20,6 +20,7 @@ function App() {
   const [view, setView] = useState('auth') // auth | app
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [token, setToken] = useState(localStorage.getItem('token') || '')
   const [profile, setProfile] = useState(null)
   const [error, setError] = useState('')
@@ -40,6 +41,18 @@ function App() {
   const [creating, setCreating] = useState(false)
 
   const authHeader = useMemo(() => token ? { Authorization: `Bearer ${token}` } : {}, [token])
+
+  const readError = async (res) => {
+    try {
+      const data = await res.json()
+      if (typeof data === 'string') return data
+      if (data?.detail) return typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)
+      if (data?.message) return data.message
+      return JSON.stringify(data)
+    } catch {
+      try { return await res.text() } catch { return 'Request failed' }
+    }
+  }
 
   useEffect(() => {
     if (token) {
@@ -86,14 +99,27 @@ function App() {
 
   const register = async (e) => {
     e.preventDefault()
+    if (submitting) return
+    setSubmitting(true)
     setError('')
+    const emailTrim = email.trim()
+    if (!emailTrim || !password) {
+      setError('Please enter email and password')
+      setSubmitting(false)
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      setSubmitting(false)
+      return
+    }
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: emailTrim, password }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) throw new Error(await readError(res))
       const data = await res.json()
       setToken(data.access_token)
       localStorage.setItem('token', data.access_token)
@@ -101,20 +127,30 @@ function App() {
       setProfile(await me.json())
       setView('app')
     } catch (err) {
-      setError('Sign up failed')
+      setError(String(err?.message || err) || 'Sign up failed')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const login = async (e) => {
     e.preventDefault()
+    if (submitting) return
+    setSubmitting(true)
     setError('')
+    const emailTrim = email.trim()
+    if (!emailTrim || !password) {
+      setError('Please enter email and password')
+      setSubmitting(false)
+      return
+    }
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: emailTrim, password }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) throw new Error(await readError(res))
       const data = await res.json()
       setToken(data.access_token)
       localStorage.setItem('token', data.access_token)
@@ -122,7 +158,9 @@ function App() {
       setProfile(await me.json())
       setView('app')
     } catch (err) {
-      setError('Login failed')
+      setError(String(err?.message || err) || 'Login failed')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -193,8 +231,8 @@ function App() {
             <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="Email" className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <input value={password} onChange={e=>setPassword(e.target.value)} type="password" placeholder="Password" className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <div className="flex gap-3">
-              <button onClick={login} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 font-medium">Log in</button>
-              <button onClick={register} className="flex-1 bg-gray-900 hover:bg-black text-white rounded-lg py-2 font-medium">Sign up</button>
+              <button type="submit" disabled={submitting} onClick={login} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg py-2 font-medium">{submitting ? 'Please wait…' : 'Log in'}</button>
+              <button type="button" disabled={submitting} onClick={register} className="flex-1 bg-gray-900 hover:bg-black disabled:opacity-60 text-white rounded-lg py-2 font-medium">{submitting ? 'Please wait…' : 'Sign up'}</button>
             </div>
           </form>
         </div>
